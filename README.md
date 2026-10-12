@@ -38,6 +38,13 @@ omarchy plugin disable io.github.berrimi.omacursor
   variants stay built on disk, so switching is instant after the first
   build of each.
 
+## Dependencies
+
+- Hyprland with `hyprctl` and the Omarchy Lua API (`hl.dsp.cursor.move`)
+- Python 3.11+ (standard library only, no extra packages)
+
+No system packages, services, or configuration changes required.
+
 ## Credits
 
 The cursor theming engine (`scripts/theme-cursor.py`) is derived from
