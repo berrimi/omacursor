@@ -23,8 +23,8 @@ BarWidget {
     bar: root.bar
     iconComponent: cursorIcon
     tooltipText: root.swapped
-      ? "omacursor · accent fill · click for accent outline"
-      : "omacursor · accent outline · click for accent fill"
+      ? "omacursor · accent fill · click to switch to outline"
+      : "omacursor · accent outline · click to switch to accent fill"
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.LeftButton && root.svc) root.svc.toggleSwap()
     }
