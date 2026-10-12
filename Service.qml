@@ -12,7 +12,7 @@ Item {
   property var shell: null
 
   readonly property string helper: localPath(Qt.resolvedUrl("scripts/theme-cursor.py"))
-  readonly property string swapFlag: localPath(Qt.resolvedUrl("swapped"))
+  readonly property string settingsFile: localPath(Qt.resolvedUrl("settings.toml"))
   readonly property string accent: String(Commons.Color.accent)
   readonly property string bg: String(Commons.Color.background)
   property bool swapped: false
@@ -46,8 +46,8 @@ Item {
 
   function setSwapped(value) {
     swapped = value === true
-    if (swapFlag !== "") {
-      saveSwap.command = ["sh", "-c", "printf %s \"$1\" > \"$2\"", "save", swapped ? "1" : "0", swapFlag]
+    if (settingsFile !== "") {
+      saveSwap.command = ["sh", "-c", "printf 'swapped = %s\\n' \"$1\" > \"$2\"", "save", swapped ? "true" : "false", settingsFile]
       saveSwap.running = true
     }
     run()
@@ -57,8 +57,8 @@ Item {
   onBgChanged: debounce.restart()
 
   Component.onCompleted: {
-    if (swapFlag !== "") {
-      loadSwap.command = ["cat", swapFlag]
+    if (settingsFile !== "") {
+      loadSwap.command = ["python3", "-c", "import sys,tomllib; print(tomllib.load(open(sys.argv[1],'rb')).get('swapped') is True)", settingsFile]
       loadSwap.running = true
     } else {
       run()
@@ -87,7 +87,7 @@ Item {
     id: loadSwap
     stdout: StdioCollector {
       onStreamFinished: {
-        root.swapped = text.trim() === "1"
+        root.swapped = text.trim() === "True"
         root.run()
       }
     }

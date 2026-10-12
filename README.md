@@ -19,7 +19,7 @@ The icon lands on the right side of the bar.
 - **Left-click the icon:** swap between normal and accent-fill cursor.
 - **Hover the icon:** the tooltip tells you which mode is active.
 
-The choice persists across shell restarts. If you ever want out:
+The choice persists across shell and system restarts (in `settings.toml`). If you ever want out:
 
 ```bash
 ./scripts/theme-cursor.py restore
