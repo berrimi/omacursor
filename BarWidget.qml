@@ -23,8 +23,8 @@ BarWidget {
     bar: root.bar
     iconComponent: cursorIcon
     tooltipText: root.swapped
-      ? "omacursor · accent fill · click to switch to outline"
-      : "omacursor · accent outline · click to switch to accent fill"
+      ? "omacursor · accent outline · click to switch to accent fill"
+      : "omacursor · accent fill · click to switch to outline"
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.LeftButton && root.svc) root.svc.toggleSwap()
     }
@@ -40,8 +40,8 @@ BarWidget {
         id: glyph
         anchors.fill: parent
         source: root.swapped
-          ? Qt.resolvedUrl("assets/cursor-filled.svg")
-          : Qt.resolvedUrl("assets/cursor-outline.svg")
+          ? Qt.resolvedUrl("assets/cursor-outline.svg")
+          : Qt.resolvedUrl("assets/cursor-filled.svg")
         sourceSize.width: 64
         sourceSize.height: 64
         fillMode: Image.PreserveAspectFit
