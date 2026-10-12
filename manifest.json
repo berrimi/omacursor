@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.berrimi.omacursor",
+  "name": "omacursor",
+  "version": "0.1.0",
+  "author": "berrimi",
+  "license": "MIT",
+  "description": "Recolors the system cursor to the active Omarchy accent/background automatically; click the bar icon to swap accent fill.",
+  "kinds": ["service", "bar-widget"],
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "omacursor",
+    "description": "Toggle accent-fill cursor.",
+    "category": "System",
+    "defaultSection": "right",
+    "allowMultiple": false
+  },
+  "homepage": "https://github.com/berrimi/omacursor",
+  "repository": "https://github.com/berrimi/omacursor"
+}
