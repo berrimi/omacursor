@@ -22,8 +22,6 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     iconComponent: cursorIcon
-    active: root.swapped
-    useActiveColor: true
     tooltipText: root.swapped
       ? "omacursor · accent fill · click for normal"
       : "omacursor · normal · click for accent fill"
@@ -41,7 +39,9 @@ BarWidget {
       Image {
         id: glyph
         anchors.fill: parent
-        source: Qt.resolvedUrl("assets/cursor.svg")
+        source: root.swapped
+          ? Qt.resolvedUrl("assets/cursor-filled.svg")
+          : Qt.resolvedUrl("assets/cursor-outline.svg")
         sourceSize.width: 64
         sourceSize.height: 64
         fillMode: Image.PreserveAspectFit
@@ -55,7 +55,7 @@ BarWidget {
         anchors.fill: glyph
         source: glyph
         colorization: 1.0
-        colorizationColor: button.active && button.useActiveColor ? button.activeColor : button.foreground
+        colorizationColor: button.foreground
       }
     }
   }
