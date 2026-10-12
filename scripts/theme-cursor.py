@@ -245,6 +245,26 @@ def write_state(payload: dict[str, Any]) -> None:
     os.replace(temporary, path)
 
 
+# Pixels to nudge the pointer out and back after a theme switch. A same-spot
+# move generates no enter/leave, so toolkit clients keep their cached cursor
+# until reopened; crossing even a few pixels re-arms whatever is underneath.
+JIGGLE_PIXELS = 8
+
+
+def dispatch_move(executable: str, x: int, y: int) -> bool:
+    try:
+        completed = subprocess.run(
+            [executable, "dispatch", f"hl.dsp.cursor.move({{ x = {x}, y = {y} }})"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        )
+        return completed.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def refresh_cursor_image(executable: str) -> None:
     try:
         position = subprocess.run(
@@ -262,21 +282,22 @@ def refresh_cursor_image(executable: str) -> None:
             return
         x = round(x)
         y = round(y)
-        dispatch = subprocess.run(
-            [executable, "dispatch", f"hl.dsp.cursor.move({{ x = {x}, y = {y} }})"],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-        )
-        if dispatch.returncode != 0:
-            subprocess.run(
-                [executable, "dispatch", "movecursor", str(x), str(y)],
-                check=False,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=2,
-            )
+        if dispatch_move(executable, x + JIGGLE_PIXELS, y) and dispatch_move(executable, x, y):
+            return
+        # movecursor takes relative deltas: out and back nets to zero even if
+        # the compositor clamps at a screen edge.
+        for dx, dy in ((JIGGLE_PIXELS, 0), (-JIGGLE_PIXELS, 0)):
+            try:
+                subprocess.run(
+                    [executable, "dispatch", "movecursor", str(dx), str(dy)],
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=2,
+                )
+            except (OSError, subprocess.SubprocessError):
+                return
+        dispatch_move(executable, x, y)
     except (OSError, ValueError, json.JSONDecodeError, subprocess.SubprocessError):
         return
 
