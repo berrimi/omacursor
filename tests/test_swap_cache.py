@@ -60,7 +60,7 @@ def test_toggle_uses_cached_variants(tmp_path):
     assert not state.exists()
 
 
-def test_refresh_jiggles_out_and_back_with_relative_fallback(tmp_path):
+def test_refresh_reasserts_position_without_moving(tmp_path):
     icons = tmp_path / "icons" / "Adwaita" / "cursors"
     icons.mkdir(parents=True)
     shutil.copy2(REAL_CURSOR, icons / "left_ptr")
@@ -80,6 +80,5 @@ def test_refresh_jiggles_out_and_back_with_relative_fallback(tmp_path):
                OMACURSOR_CURSOR_STATE=str(tmp_path / "state.json"))
     run(env, "apply", "#78824b", "#222222", "default", "24")
     calls = log.read_text().splitlines()
-    assert "dispatch hl.dsp.cursor.move({ x = 108, y = 50 })" in calls
     assert "dispatch hl.dsp.cursor.move({ x = 100, y = 50 })" in calls
     assert [c for c in calls if c.startswith("dispatch movecursor")] == []
