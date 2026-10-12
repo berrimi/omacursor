@@ -297,6 +297,19 @@ def set_cursor(theme: str, size: int) -> None:
     refresh_cursor_image(executable)
 
 
+def variant_dir(fill: str, outline: str) -> Path:
+    # Filesystem-safe cache slot per color pair; both toggle states stay built.
+    key = f"{fill}_{outline}".replace("/", "_")
+    return runtime_theme_path().parent / f"cursor-theme.{key}"
+
+
+def cached_builds(state: dict[str, Any] | None) -> dict[str, Any]:
+    builds = (state or {}).get("builds")
+    if not isinstance(builds, dict):
+        return {}
+    return {k: v for k, v in builds.items() if isinstance(v, dict)}
+
+
 def apply_theme(fill: str, outline: str, baseline_theme: str, baseline_size: int) -> dict[str, Any]:
     if baseline_size < 1 or baseline_size > 512:
         raise ValueError("cursor size must be from 1 to 512")
@@ -309,31 +322,69 @@ def apply_theme(fill: str, outline: str, baseline_theme: str, baseline_size: int
         source_name = baseline_theme
     if baseline_theme == RUNTIME_THEME:
         raise ValueError("runtime theme cannot be used as the baseline")
-    source, resolved_source = resolve_theme(source_name)
     root = runtime_icon_root()
     root.mkdir(parents=True, exist_ok=True)
     target = root / RUNTIME_THEME
-    theme_store = runtime_theme_path()
-    theme_store.parent.mkdir(parents=True, exist_ok=True)
-    staging = theme_store.parent / f".cursor-theme.{os.getpid()}.tmp"
+    store_parent = runtime_theme_path().parent
+    store_parent.mkdir(parents=True, exist_ok=True)
+    builds = cached_builds(existing)
+    # Adopt a pre-cache build (or the legacy single dir) instead of rebuilding.
+    legacy_path = Path(str((existing or {}).get("themePath") or runtime_theme_path()))
+    if (
+        existing
+        and str(existing.get("fill")) == fill
+        and str(existing.get("outline")) == outline
+        and legacy_path.is_dir()
+        and all(str(v.get("path")) != str(legacy_path) for v in builds.values())
+    ):
+        builds[f"{fill}|{outline}"] = {"fill": fill, "outline": outline, "path": str(legacy_path)}
+    key = f"{fill}|{outline}"
+    entry = builds.get(key)
+    variant = Path(str(entry.get("path"))) if isinstance(entry, dict) and entry.get("path") else variant_dir(fill, outline)
+    hit = variant.is_dir()
+    if hit:
+        # Refresh recency; at most two variants are kept.
+        builds[key] = builds.pop(key)
+        stats: dict[str, Any] = {"files": 0, "pixels": 0, "cached": True}
+        resolved_source_out = str((existing or {}).get("sourceTheme") or source_name)
+    else:
+        source, resolved_source = resolve_theme(source_name)
+        staging = store_parent / f".cursor-theme.{os.getpid()}.tmp"
+        try:
+            built = build_theme(source, staging, fill, outline)
+            remove_path(variant)
+            os.replace(staging, variant)
+            stats = {"files": built["files"], "pixels": built["pixels"], "cached": False}
+        finally:
+            remove_path(staging)
+        builds[key] = {"fill": fill, "outline": outline, "path": str(variant)}
+        while len(builds) > 2:
+            oldest, victim = next(iter(builds.items()))
+            if oldest == key:
+                break
+            del builds[oldest]
+            if str(victim.get("path")) != str(variant):
+                remove_path(Path(str(victim.get("path"))))
+        # Drop the legacy single dir once the cache owns this pair.
+        if legacy_path != variant and legacy_path == runtime_theme_path():
+            remove_path(legacy_path)
+        resolved_source_out = resolved_source
     temporary_link = root / f".{RUNTIME_THEME}.{os.getpid()}.tmp"
     try:
-        stats = build_theme(source, staging, fill, outline)
-        remove_path(theme_store)
-        os.replace(staging, theme_store)
         remove_path(temporary_link)
-        temporary_link.symlink_to(theme_store, target_is_directory=True)
+        temporary_link.symlink_to(variant, target_is_directory=True)
         remove_path(target)
         os.replace(temporary_link, target)
         state = {
             "version": 1,
             "baselineTheme": baseline_theme,
             "baselineSize": baseline_size,
-            "sourceTheme": resolved_source,
+            "sourceTheme": resolved_source_out,
             "fill": fill,
             "outline": outline,
-            "themePath": str(theme_store),
+            "themePath": str(variant),
             "linkPath": str(target),
+            "builds": builds,
         }
         write_state(state)
         try:
@@ -347,11 +398,10 @@ def apply_theme(fill: str, outline: str, baseline_theme: str, baseline_size: int
             if not existing:
                 state_path().unlink(missing_ok=True)
                 remove_path(target)
-                remove_path(theme_store)
+                remove_path(variant)
             raise
         return {"active": True, "theme": RUNTIME_THEME, **state, **stats}
     finally:
-        remove_path(staging)
         remove_path(temporary_link)
 
 
@@ -368,6 +418,9 @@ def restore_theme() -> dict[str, Any]:
     set_cursor(baseline_theme, baseline_size)
     remove_path(target)
     remove_path(theme_store)
+    for entry in cached_builds(state).values():
+        if entry.get("path"):
+            remove_path(Path(str(entry["path"])))
     state_path().unlink(missing_ok=True)
     return {
         "active": False,

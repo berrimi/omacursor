@@ -33,7 +33,9 @@ omarchy plugin disable io.github.berrimi.omacursor
 - `assets/cursor.svg` — the bar icon (white silhouette; the bar tints it).
 - `scripts/theme-cursor.py` — builds and applies a temporary recolored
   Xcursor theme. `apply-omarchy` reads the current Omarchy colors,
-  `restore` returns to the previous cursor theme and size.
+  `restore` returns to the previous cursor theme and size. Both toggle
+  variants stay built on disk, so switching is instant after the first
+  build of each.
 
 ## Credits
 
