@@ -12,7 +12,10 @@ Item {
   property var shell: null
 
   readonly property string helper: localPath(Qt.resolvedUrl("scripts/theme-cursor.py"))
-  readonly property string settingsFile: localPath(Qt.resolvedUrl("settings.toml"))
+  // State lives outside the plugin dir: writes under ~/.config/omarchy/plugins/
+  // trip the shell's file watcher and reload the whole plugin on every click.
+  readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/omacursor"
+  readonly property string settingsFile: stateDir + "/settings.toml"
   readonly property string accent: String(Commons.Color.accent)
   readonly property string bg: String(Commons.Color.background)
   property bool swapped: false
@@ -46,10 +49,8 @@ Item {
 
   function setSwapped(value) {
     swapped = value === true
-    if (settingsFile !== "") {
-      saveSwap.command = ["sh", "-c", "printf 'swapped = %s\\n' \"$1\" > \"$2\"", "save", swapped ? "true" : "false", settingsFile]
-      saveSwap.running = true
-    }
+    saveSwap.command = ["sh", "-c", "mkdir -p \"$1\" && printf 'swapped = %s\\n' \"$2\" > \"$1/settings.toml\"", "save", stateDir, swapped ? "true" : "false"]
+    saveSwap.running = true
     run()
   }
 
@@ -57,12 +58,8 @@ Item {
   onBgChanged: debounce.restart()
 
   Component.onCompleted: {
-    if (settingsFile !== "") {
-      loadSwap.command = ["python3", "-c", "import sys,tomllib; print(tomllib.load(open(sys.argv[1],'rb')).get('swapped') is True)", settingsFile]
-      loadSwap.running = true
-    } else {
-      run()
-    }
+    loadSwap.command = ["python3", "-c", "import sys,tomllib; print(tomllib.load(open(sys.argv[1],'rb')).get('swapped') is True)", settingsFile]
+    loadSwap.running = true
   }
 
   // ponytail: baseline defaults to default/24 inside theme-cursor.py, no per-theme size tracking; add when non-default cursor sizes matter.
