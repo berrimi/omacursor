@@ -245,7 +245,27 @@ def write_state(payload: dict[str, Any]) -> None:
     os.replace(temporary, path)
 
 
+def dispatch_move(executable: str, x: int, y: int) -> bool:
+    try:
+        completed = subprocess.run(
+            [executable, "dispatch", f"hl.dsp.cursor.move({{ x = {x}, y = {y} }})"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        )
+        return completed.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def refresh_cursor_image(executable: str) -> None:
+    # hyprctl setcursor only becomes visible on the next pointer-enter: motion
+    # inside one surface changes nothing, which is why the new cursor seemed
+    # to appear only after hovering the bar. Warp up into the bar band and
+    # back so every switch manufactures its own leave/enter cycle.
+    # (ponytail: assumes the bar is on top; adjust BAR_BAND_Y if it moves.
+    # Fullscreen windows with no crossed edge stay stale until reopened.)
     try:
         position = subprocess.run(
             [executable, "-j", "cursorpos"],
@@ -262,21 +282,23 @@ def refresh_cursor_image(executable: str) -> None:
             return
         x = round(x)
         y = round(y)
-        dispatch = subprocess.run(
-            [executable, "dispatch", f"hl.dsp.cursor.move({{ x = {x}, y = {y} }})"],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-        )
-        if dispatch.returncode != 0:
-            subprocess.run(
-                [executable, "dispatch", "movecursor", str(x), str(y)],
-                check=False,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=2,
-            )
+        if y <= 26:
+            return
+        if dispatch_move(executable, x, 13) and dispatch_move(executable, x, y):
+            return
+        # movecursor takes relative deltas; the pair nets to zero.
+        for dx, dy in ((0, 13 - y), (0, y - 13)):
+            try:
+                subprocess.run(
+                    [executable, "dispatch", "movecursor", str(dx), str(dy)],
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=2,
+                )
+            except (OSError, subprocess.SubprocessError):
+                return
+        dispatch_move(executable, x, y)
     except (OSError, ValueError, json.JSONDecodeError, subprocess.SubprocessError):
         return
 
