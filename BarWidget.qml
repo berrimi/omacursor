@@ -40,8 +40,8 @@ BarWidget {
         id: glyph
         anchors.fill: parent
         source: root.swapped
-          ? Qt.resolvedUrl("assets/cursor-outline.svg")
-          : Qt.resolvedUrl("assets/cursor-filled.svg")
+          ? Qt.resolvedUrl("assets/cursor-filled.svg")
+          : Qt.resolvedUrl("assets/cursor-outline.svg")
         sourceSize.width: 64
         sourceSize.height: 64
         fillMode: Image.PreserveAspectFit
