@@ -21,7 +21,8 @@ RUNTIME_THEME = "omacursor-runtime"
 CURSOR_NAMES = ("default", "left_ptr", "arrow")
 # Hide hold after a theme switch: must span a full ~500 ms cursor.invisible
 # poll or the re-show lands before the compositor re-resolves the image.
-HIDE_HOLD_SECONDS = 0.7
+# 0.6 is the minimum Omarchy itself uses; do not go lower without re-testing.
+HIDE_HOLD_SECONDS = 0.6
 
 
 def icon_roots() -> list[Path]:

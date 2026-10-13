@@ -43,7 +43,7 @@ if command -v hyprctl >/dev/null 2>&1; then
       # shellcheck disable=SC2064
       trap "hyprctl eval 'hl.config { cursor = { invisible = $VIS } }' >/dev/null 2>&1" EXIT INT TERM
       hyprctl eval 'hl.config { cursor = { invisible = true } }' >/dev/null 2>&1
-      sleep 0.7
+      sleep 0.6
       hyprctl eval "hl.config { cursor = { invisible = $VIS } }" >/dev/null 2>&1
       trap - EXIT INT TERM
       POS="$(hyprctl -j cursorpos 2>/dev/null)"
