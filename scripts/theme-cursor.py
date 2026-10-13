@@ -284,6 +284,9 @@ def refresh_cursor_image(executable: str) -> None:
     baseline = read_cursor_invisible(executable)
     if baseline is None:
         return
+    set_cursor_invisible(executable, True)
+    time.sleep(0.04)
+    set_cursor_invisible(executable, baseline)
     try:
         position = subprocess.run(
             [executable, "-j", "cursorpos"],
@@ -298,21 +301,14 @@ def refresh_cursor_image(executable: str) -> None:
         y = payload.get("y")
         if isinstance(x, bool) or isinstance(y, bool) or not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
             return
-        coords = f"hl.dsp.cursor.move({{ x = {round(x)}, y = {round(y)} }})"
-    except (OSError, ValueError, json.JSONDecodeError, subprocess.SubprocessError):
-        return
-    set_cursor_invisible(executable, True)
-    time.sleep(0.04)
-    set_cursor_invisible(executable, baseline)
-    try:
         subprocess.run(
-            [executable, "dispatch", coords],
+            [executable, "dispatch", f"hl.dsp.cursor.move({{ x = {round(x)}, y = {round(y)} }})"],
             check=False,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             timeout=2,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, ValueError, json.JSONDecodeError, subprocess.SubprocessError):
         pass
 
 

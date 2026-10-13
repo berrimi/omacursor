@@ -71,6 +71,7 @@ def test_refresh_toggles_invisible(tmp_path):
     (fakebin / "hyprctl").write_text(
         "#!/bin/sh\n"
         f'echo "$@" >> "{log}"\n'
+        'if [ "$1" = -j ] && [ "$2" = cursorpos ]; then echo \'{"x":1,"y":2}\'; fi\n'
         'if [ "$1" = -j ] && [ "$2" = getoption ]; then echo \'{"option":"cursor:invisible","bool":false}\'; fi\n'
     )
     (fakebin / "hyprctl").chmod(0o755)
