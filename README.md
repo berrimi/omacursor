@@ -20,11 +20,12 @@ The icon lands on the right side of the bar.
 - **Hover the icon:** the tooltip tells you which mode is active.
 
 The choice persists across shell and system restarts (in
-`~/.local/state/omacursor/settings.toml`). If you ever want out:
+`~/.local/state/omacursor/settings.toml`). Disabling or removing the plugin
+restores the stock cursor automatically:
 
 ```bash
-./scripts/theme-cursor.py restore
 omarchy plugin disable io.github.berrimi.omacursor
+omarchy plugin remove io.github.berrimi.omacursor
 ```
 
 ## Files
