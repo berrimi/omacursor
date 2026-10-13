@@ -19,6 +19,9 @@ from typing import Any
 IMAGE_TYPE = 0xFFFD0002
 RUNTIME_THEME = "omacursor-runtime"
 CURSOR_NAMES = ("default", "left_ptr", "arrow")
+# Hide hold after a theme switch: must span a full ~500 ms cursor.invisible
+# poll or the re-show lands before the compositor re-resolves the image.
+HIDE_HOLD_SECONDS = 0.7
 
 
 def icon_roots() -> list[Path]:
@@ -285,8 +288,12 @@ def refresh_cursor_image(executable: str) -> None:
     if baseline is None:
         return
     set_cursor_invisible(executable, True)
-    time.sleep(0.04)
-    set_cursor_invisible(executable, baseline)
+    try:
+        # Hyprland polls cursor.invisible roughly every 500 ms; the hold must
+        # span a full poll or the show lands before anything re-resolves.
+        time.sleep(HIDE_HOLD_SECONDS)
+    finally:
+        set_cursor_invisible(executable, baseline)
     try:
         position = subprocess.run(
             [executable, "-j", "cursorpos"],
@@ -373,6 +380,33 @@ def apply_theme(fill: str, outline: str, baseline_theme: str, baseline_size: int
     entry = builds.get(key)
     variant = Path(str(entry.get("path"))) if isinstance(entry, dict) and entry.get("path") else variant_dir(fill, outline)
     hit = variant.is_dir()
+    if (
+        hit
+        and existing
+        and str(existing.get("fill")) == fill
+        and str(existing.get("outline")) == outline
+        and str(existing.get("baselineTheme")) == baseline_theme
+        and (existing.get("baselineSize") or 0) == baseline_size
+        and str(existing.get("themePath")) == str(variant)
+        and os.path.realpath(target) == str(variant)
+    ):
+        # Nothing changed and the link already points here: skip every
+        # hyprctl call, so redundant applies (boot, rescan, widget rebuild)
+        # never black out the pointer.
+        builds[key] = builds.pop(key)
+        state = {
+            "version": 1,
+            "baselineTheme": baseline_theme,
+            "baselineSize": baseline_size,
+            "sourceTheme": str(existing.get("sourceTheme") or source_name),
+            "fill": fill,
+            "outline": outline,
+            "themePath": str(variant),
+            "linkPath": str(target),
+            "builds": builds,
+        }
+        write_state(state)
+        return {"active": True, "theme": RUNTIME_THEME, **state, "files": 0, "pixels": 0, "cached": True}
     if hit:
         # Refresh recency; at most two variants are kept.
         builds[key] = builds.pop(key)

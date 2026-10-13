@@ -34,14 +34,18 @@ if [ -f "$STATE" ] && command -v jq >/dev/null 2>&1; then
 fi
 if command -v hyprctl >/dev/null 2>&1; then
   hyprctl setcursor "$BASELINE" "$SIZE" >/dev/null 2>&1
-  # Same wake as theme-cursor.py: blink invisible, restore baseline, then a
-  # same-spot move re-arms the surface underneath. No visible motion.
+  # Same wake as theme-cursor.py: blink invisible past a full ~500 ms poll,
+  # restore the baseline, then a same-spot move re-arms the surface.
   if command -v jq >/dev/null 2>&1; then
     VIS="$(hyprctl -j getoption cursor:invisible 2>/dev/null | jq -r '.bool' 2>/dev/null)"
     if [ "$VIS" = true ] || [ "$VIS" = false ]; then
-      hyprctl eval "hl.config { cursor = { invisible = true } }" >/dev/null 2>&1
-      sleep 0.04
+      # Never leave the pointer hidden, even if killed mid-hold.
+      # shellcheck disable=SC2064
+      trap "hyprctl eval 'hl.config { cursor = { invisible = $VIS } }' >/dev/null 2>&1" EXIT INT TERM
+      hyprctl eval 'hl.config { cursor = { invisible = true } }' >/dev/null 2>&1
+      sleep 0.7
       hyprctl eval "hl.config { cursor = { invisible = $VIS } }" >/dev/null 2>&1
+      trap - EXIT INT TERM
       POS="$(hyprctl -j cursorpos 2>/dev/null)"
       CX="$(printf '%s' "$POS" | jq -r '.x // empty' 2>/dev/null | cut -d. -f1)"
       CY="$(printf '%s' "$POS" | jq -r '.y // empty' 2>/dev/null | cut -d. -f1)"
