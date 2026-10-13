@@ -31,7 +31,10 @@ def setup_env(tmp_path, *, plugin_dir=True, layout_ids=None, plugins_ids=None):
     fakebin = tmp_path / "bin"
     fakebin.mkdir()
     log = tmp_path / "hyprctl.log"
-    (fakebin / "hyprctl").write_text(f'#!/bin/sh\necho "$@" >> "{log}"\n')
+    (fakebin / "hyprctl").write_text(
+        f'#!/bin/sh\necho "$@" >> "{log}"\n'
+        'if [ "$1" = -j ]; then echo \'{"x":100,"y":50}\'; fi\n'
+    )
     (fakebin / "hyprctl").chmod(0o755)
     env = dict(os.environ, HOME=str(home), XDG_RUNTIME_DIR=str(run),
                PATH=f"{fakebin}{os.pathsep}/usr/bin:/bin")
@@ -58,7 +61,10 @@ def test_disabled_plugin_restores_baseline(tmp_path):
     # service must still treat that as unwanted.
     env, log, run, icons = setup_env(tmp_path, plugins_ids=[PLUGIN_ID], layout_ids=["something.else"])
     run_script(env)
-    assert log.read_text().strip() == "setcursor quux 48"
+    calls = log.read_text().splitlines()
+    assert "setcursor quux 48" in calls
+    assert "dispatch hl.dsp.cursor.move({ x = 100, y = 13 })" in calls
+    assert "dispatch hl.dsp.cursor.move({ x = 100, y = 50 })" in calls
     assert not icons.exists()
     assert not (run / "omacursor").exists()
 
@@ -66,7 +72,9 @@ def test_disabled_plugin_restores_baseline(tmp_path):
 def test_removed_plugin_restores_baseline(tmp_path):
     env, log, run, icons = setup_env(tmp_path, plugin_dir=False, layout_ids=[], plugins_ids=[])
     run_script(env)
-    assert log.read_text().strip() == "setcursor quux 48"
+    calls = log.read_text().splitlines()
+    assert "setcursor quux 48" in calls
+    assert "dispatch hl.dsp.cursor.move({ x = 100, y = 13 })" in calls
     assert not icons.exists()
     assert not (run / "omacursor").exists()
 

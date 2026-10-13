@@ -34,6 +34,19 @@ if [ -f "$STATE" ] && command -v jq >/dev/null 2>&1; then
 fi
 if command -v hyprctl >/dev/null 2>&1; then
   hyprctl setcursor "$BASELINE" "$SIZE" >/dev/null 2>&1
+  # Same enter-event trick as theme-cursor.py: the compositor only shows the
+  # restored cursor on the next pointer-enter, so warp to the bar band and
+  # back instead of waiting for a manual hover.
+  if command -v jq >/dev/null 2>&1; then
+    CX="$(hyprctl -j cursorpos 2>/dev/null | jq -r '.x // empty' 2>/dev/null | cut -d. -f1)"
+    CY="$(hyprctl -j cursorpos 2>/dev/null | jq -r '.y // empty' 2>/dev/null | cut -d. -f1)"
+    case "$CX/$CY" in ''/*|*/''|*[!0-9/-]*|*-*) ;; *)
+      if [ "$CY" -gt 26 ] 2>/dev/null; then
+        hyprctl dispatch "hl.dsp.cursor.move({ x = $CX, y = 13 })" >/dev/null 2>&1
+        hyprctl dispatch "hl.dsp.cursor.move({ x = $CX, y = $CY })" >/dev/null 2>&1
+      fi ;;
+    esac
+  fi
 fi
 rm -rf "$HOME/.local/share/icons/omacursor-runtime" "$RUNDIR"
 exit 0
