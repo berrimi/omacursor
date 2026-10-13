@@ -66,6 +66,7 @@ def test_disabled_plugin_restores_baseline(tmp_path):
     assert "setcursor quux 48" in calls
     assert "eval hl.config { cursor = { invisible = true } }" in calls
     assert "eval hl.config { cursor = { invisible = false } }" in calls
+    assert "dispatch hl.dsp.cursor.move({ x = 100, y = 50 })" in calls
     assert not icons.exists()
     assert not (run / "omacursor").exists()
 

@@ -34,13 +34,20 @@ if [ -f "$STATE" ] && command -v jq >/dev/null 2>&1; then
 fi
 if command -v hyprctl >/dev/null 2>&1; then
   hyprctl setcursor "$BASELINE" "$SIZE" >/dev/null 2>&1
-  # Re-resolve without moving the pointer: blink invisible, restore baseline.
+  # Same wake as theme-cursor.py: blink invisible, restore baseline, then a
+  # same-spot move re-arms the surface underneath. No visible motion.
   if command -v jq >/dev/null 2>&1; then
     VIS="$(hyprctl -j getoption cursor:invisible 2>/dev/null | jq -r '.bool' 2>/dev/null)"
     if [ "$VIS" = true ] || [ "$VIS" = false ]; then
       hyprctl eval "hl.config { cursor = { invisible = true } }" >/dev/null 2>&1
       sleep 0.04
       hyprctl eval "hl.config { cursor = { invisible = $VIS } }" >/dev/null 2>&1
+      POS="$(hyprctl -j cursorpos 2>/dev/null)"
+      CX="$(printf '%s' "$POS" | jq -r '.x // empty' 2>/dev/null | cut -d. -f1)"
+      CY="$(printf '%s' "$POS" | jq -r '.y // empty' 2>/dev/null | cut -d. -f1)"
+      case "$CX/$CY" in ''/*|*/'') ;; *)
+        hyprctl dispatch "hl.dsp.cursor.move({ x = $CX, y = $CY })" >/dev/null 2>&1 ;;
+      esac
     fi
   fi
 fi

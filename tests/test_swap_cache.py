@@ -83,7 +83,9 @@ def test_refresh_toggles_invisible(tmp_path):
     calls = log.read_text().splitlines()
     hide = "eval hl.config { cursor = { invisible = true } }"
     show = "eval hl.config { cursor = { invisible = false } }"
+    move = "dispatch hl.dsp.cursor.move({ x = 1, y = 2 })"
     assert hide in calls
     assert show in calls
-    assert calls.index(hide) < calls.index(show)
-    assert [c for c in calls if c.startswith("dispatch")] == []
+    assert move in calls
+    assert calls.index(hide) < calls.index(show) < calls.index(move)
+    assert [c for c in calls if c.startswith("dispatch movecursor")] == []

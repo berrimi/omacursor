@@ -278,14 +278,42 @@ def set_cursor_invisible(executable: str, value: bool) -> None:
 
 
 def refresh_cursor_image(executable: str) -> None:
-    # Re-showing the cursor re-resolves its image from the current theme with
-    # no pointer motion: hide it for two frames, then restore the baseline.
+    # Mirror big-cheese's wake sequence: re-showing the cursor re-resolves
+    # its image from the current theme, and the same-spot move re-arms the
+    # surface underneath. No visible motion either way.
     baseline = read_cursor_invisible(executable)
     if baseline is None:
+        return
+    try:
+        position = subprocess.run(
+            [executable, "-j", "cursorpos"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=2,
+        )
+        payload = json.loads(position.stdout) if position.returncode == 0 else {}
+        x = payload.get("x")
+        y = payload.get("y")
+        if isinstance(x, bool) or isinstance(y, bool) or not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
+            return
+        coords = f"hl.dsp.cursor.move({{ x = {round(x)}, y = {round(y)} }})"
+    except (OSError, ValueError, json.JSONDecodeError, subprocess.SubprocessError):
         return
     set_cursor_invisible(executable, True)
     time.sleep(0.04)
     set_cursor_invisible(executable, baseline)
+    try:
+        subprocess.run(
+            [executable, "dispatch", coords],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        )
+    except (OSError, subprocess.SubprocessError):
+        pass
 
 
 def set_cursor(theme: str, size: int) -> None:
