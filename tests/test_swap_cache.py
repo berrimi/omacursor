@@ -30,7 +30,8 @@ def test_toggle_uses_cached_variants(tmp_path):
     (fakebin / "hyprctl").write_text(
         "#!/bin/sh\n"
         f'echo "$@" >> "{log}"\n'
-        'if [ "$1" = -j ]; then echo \'{"x":1,"y":2}\'; fi\n'
+        'if [ "$1" = -j ] && [ "$2" = cursorpos ]; then echo \'{"x":1,"y":2}\'; fi\n'
+        'if [ "$1" = -j ] && [ "$2" = getoption ]; then echo \'{"option":"cursor:invisible","bool":false}\'; fi\n'
     )
     (fakebin / "hyprctl").chmod(0o755)
     state = tmp_path / "state.json"
@@ -60,7 +61,7 @@ def test_toggle_uses_cached_variants(tmp_path):
     assert not state.exists()
 
 
-def test_refresh_warps_to_bar_band_and_back(tmp_path):
+def test_refresh_toggles_invisible(tmp_path):
     icons = tmp_path / "icons" / "Adwaita" / "cursors"
     icons.mkdir(parents=True)
     shutil.copy2(REAL_CURSOR, icons / "left_ptr")
@@ -70,7 +71,7 @@ def test_refresh_warps_to_bar_band_and_back(tmp_path):
     (fakebin / "hyprctl").write_text(
         "#!/bin/sh\n"
         f'echo "$@" >> "{log}"\n'
-        'if [ "$1" = -j ]; then echo \'{"x":100,"y":50}\'; fi\n'
+        'if [ "$1" = -j ] && [ "$2" = getoption ]; then echo \'{"option":"cursor:invisible","bool":false}\'; fi\n'
     )
     (fakebin / "hyprctl").chmod(0o755)
     env = dict(os.environ, PATH=f"{fakebin}{os.pathsep}{os.environ['PATH']}",
@@ -80,7 +81,9 @@ def test_refresh_warps_to_bar_band_and_back(tmp_path):
                OMACURSOR_CURSOR_STATE=str(tmp_path / "state.json"))
     run(env, "apply", "#78824b", "#222222", "default", "24")
     calls = log.read_text().splitlines()
-    assert "dispatch hl.dsp.cursor.move({ x = 100, y = 13 })" in calls
-    assert "dispatch hl.dsp.cursor.move({ x = 100, y = 50 })" in calls
-    assert calls.index("dispatch hl.dsp.cursor.move({ x = 100, y = 13 })") < calls.index("dispatch hl.dsp.cursor.move({ x = 100, y = 50 })")
-    assert [c for c in calls if c.startswith("dispatch movecursor")] == []
+    hide = "eval hl.config { cursor = { invisible = true } }"
+    show = "eval hl.config { cursor = { invisible = false } }"
+    assert hide in calls
+    assert show in calls
+    assert calls.index(hide) < calls.index(show)
+    assert [c for c in calls if c.startswith("dispatch")] == []

@@ -12,6 +12,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import time
 import tomllib
 from typing import Any
 
@@ -244,63 +245,47 @@ def write_state(payload: dict[str, Any]) -> None:
     temporary.chmod(0o600)
     os.replace(temporary, path)
 
-
-def dispatch_move(executable: str, x: int, y: int) -> bool:
+def read_cursor_invisible(executable: str) -> bool | None:
     try:
         completed = subprocess.run(
-            [executable, "dispatch", f"hl.dsp.cursor.move({{ x = {x}, y = {y} }})"],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-        )
-        return completed.returncode == 0
-    except (OSError, subprocess.SubprocessError):
-        return False
-
-
-def refresh_cursor_image(executable: str) -> None:
-    # hyprctl setcursor only becomes visible on the next pointer-enter: motion
-    # inside one surface changes nothing, which is why the new cursor seemed
-    # to appear only after hovering the bar. Warp up into the bar band and
-    # back so every switch manufactures its own leave/enter cycle.
-    # (ponytail: assumes the bar is on top; adjust BAR_BAND_Y if it moves.
-    # Fullscreen windows with no crossed edge stay stale until reopened.)
-    try:
-        position = subprocess.run(
-            [executable, "-j", "cursorpos"],
+            [executable, "-j", "getoption", "cursor:invisible"],
             check=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
             timeout=2,
         )
-        payload = json.loads(position.stdout) if position.returncode == 0 else {}
-        x = payload.get("x")
-        y = payload.get("y")
-        if isinstance(x, bool) or isinstance(y, bool) or not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
-            return
-        x = round(x)
-        y = round(y)
-        if y <= 26:
-            return
-        if dispatch_move(executable, x, 13) and dispatch_move(executable, x, y):
-            return
-        # movecursor takes relative deltas; the pair nets to zero.
-        for dx, dy in ((0, 13 - y), (0, y - 13)):
-            try:
-                subprocess.run(
-                    [executable, "dispatch", "movecursor", str(dx), str(dy)],
-                    check=False,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    timeout=2,
-                )
-            except (OSError, subprocess.SubprocessError):
-                return
-        dispatch_move(executable, x, y)
+        if completed.returncode != 0:
+            return None
+        value = json.loads(completed.stdout).get("bool")
+        return value if isinstance(value, bool) else None
     except (OSError, ValueError, json.JSONDecodeError, subprocess.SubprocessError):
+        return None
+
+
+def set_cursor_invisible(executable: str, value: bool) -> None:
+    word = "true" if value else "false"
+    try:
+        subprocess.run(
+            [executable, "eval", f"hl.config {{ cursor = {{ invisible = {word} }} }}"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        )
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+def refresh_cursor_image(executable: str) -> None:
+    # Re-showing the cursor re-resolves its image from the current theme with
+    # no pointer motion: hide it for two frames, then restore the baseline.
+    baseline = read_cursor_invisible(executable)
+    if baseline is None:
         return
+    set_cursor_invisible(executable, True)
+    time.sleep(0.04)
+    set_cursor_invisible(executable, baseline)
 
 
 def set_cursor(theme: str, size: int) -> None:

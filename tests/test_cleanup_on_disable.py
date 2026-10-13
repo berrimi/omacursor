@@ -33,7 +33,8 @@ def setup_env(tmp_path, *, plugin_dir=True, layout_ids=None, plugins_ids=None):
     log = tmp_path / "hyprctl.log"
     (fakebin / "hyprctl").write_text(
         f'#!/bin/sh\necho "$@" >> "{log}"\n'
-        'if [ "$1" = -j ]; then echo \'{"x":100,"y":50}\'; fi\n'
+        'if [ "$1" = -j ] && [ "$2" = cursorpos ]; then echo \'{"x":100,"y":50}\'; fi\n'
+        'if [ "$1" = -j ] && [ "$2" = getoption ]; then echo \'{"option":"cursor:invisible","bool":false}\'; fi\n'
     )
     (fakebin / "hyprctl").chmod(0o755)
     env = dict(os.environ, HOME=str(home), XDG_RUNTIME_DIR=str(run),
@@ -63,8 +64,8 @@ def test_disabled_plugin_restores_baseline(tmp_path):
     run_script(env)
     calls = log.read_text().splitlines()
     assert "setcursor quux 48" in calls
-    assert "dispatch hl.dsp.cursor.move({ x = 100, y = 13 })" in calls
-    assert "dispatch hl.dsp.cursor.move({ x = 100, y = 50 })" in calls
+    assert "eval hl.config { cursor = { invisible = true } }" in calls
+    assert "eval hl.config { cursor = { invisible = false } }" in calls
     assert not icons.exists()
     assert not (run / "omacursor").exists()
 
@@ -74,7 +75,7 @@ def test_removed_plugin_restores_baseline(tmp_path):
     run_script(env)
     calls = log.read_text().splitlines()
     assert "setcursor quux 48" in calls
-    assert "dispatch hl.dsp.cursor.move({ x = 100, y = 13 })" in calls
+    assert "eval hl.config { cursor = { invisible = true } }" in calls
     assert not icons.exists()
     assert not (run / "omacursor").exists()
 
