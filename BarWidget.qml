@@ -17,6 +17,22 @@ BarWidget {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
+  // Re-apply when (re-)placed on the bar; the service outlives disable.
+  Component.onCompleted: if (root.svc) root.svc.run()
+
+  // The platform drops only the bar entry on disable, so the widget's own
+  // destruction is the precise disable signal. Detached like the service's.
+  Component.onDestruction: {
+    if (root.svc && root.svc.cleanupScript !== "") {
+      widgetCleanup.command = ["sh", "-c", "setsid sh \"$1\" >/dev/null 2>&1 < /dev/null &", "cleanup", root.svc.cleanupScript]
+      widgetCleanup.running = true
+    }
+  }
+
+  Process {
+    id: widgetCleanup
+  }
+
   BarIconButton {
     id: button
     anchors.fill: parent

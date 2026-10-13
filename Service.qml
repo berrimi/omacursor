@@ -12,6 +12,7 @@ Item {
   property var shell: null
 
   readonly property string helper: localPath(Qt.resolvedUrl("scripts/theme-cursor.py"))
+  readonly property string cleanupScript: localPath(Qt.resolvedUrl("scripts/cleanup-on-disable.sh"))
   // State lives outside the plugin dir: writes under ~/.config/omarchy/plugins/
   // trip the shell's file watcher and reload the whole plugin on every click.
   readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/omacursor"
@@ -35,10 +36,17 @@ Item {
   }
 
   function run() {
-    if (helper === "" || apply.running) {
+    if (helper === "" || cleanupScript === "" || apply.running || gate.running) {
       debounce.restart()
       return
     }
+    // The platform only half-disables service+widget plugins (bar entry
+    // dropped, service kept), so every apply re-checks shell.json first.
+    gate.command = [cleanupScript, "--check"]
+    gate.running = true
+  }
+
+  function doApply() {
     apply.command = [helper, "apply", fill, outline, "default", "24"]
     apply.running = true
   }
@@ -62,12 +70,30 @@ Item {
     loadSwap.running = true
   }
 
+  // omarchy runs nothing on disable/remove, so the service restores the
+  // stock cursor itself on the way out. Fully detached: the QML engine may
+  // tear down before a plain child finishes. The script re-checks shell.json
+  // first, so a shell restart (service recreated, entry intact) is a no-op.
+  Component.onDestruction: {
+    if (cleanupScript !== "") {
+      cleanup.command = ["sh", "-c", "setsid sh \"$1\" >/dev/null 2>&1 < /dev/null &", "cleanup", cleanupScript]
+      cleanup.running = true
+    }
+  }
+
   // ponytail: baseline defaults to default/24 inside theme-cursor.py, no per-theme size tracking; add when non-default cursor sizes matter.
   Timer {
     id: debounce
     interval: 500
     repeat: false
     onTriggered: root.run()
+  }
+
+  Process {
+    id: gate
+    onExited: function(code) {
+      if (code === 0) root.doApply()
+    }
   }
 
   Process {
@@ -98,5 +124,9 @@ Item {
     onExited: function(code) {
       if (code !== 0) console.warn("omacursor: swap save failed " + code)
     }
+  }
+
+  Process {
+    id: cleanup
   }
 }
