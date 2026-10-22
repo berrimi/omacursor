@@ -391,6 +391,7 @@ def apply_theme(fill: str, outline: str, baseline_theme: str, baseline_size: int
         and (existing.get("baselineSize") or 0) == baseline_size
         and str(existing.get("themePath")) == str(variant)
         and os.path.realpath(target) == str(variant)
+        and existing.get("instance") == os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")
     ):
         # Nothing changed and the link already points here: skip every
         # hyprctl call, so redundant applies (boot, rescan, widget rebuild)
@@ -398,6 +399,9 @@ def apply_theme(fill: str, outline: str, baseline_theme: str, baseline_size: int
         builds[key] = builds.pop(key)
         state = {
             "version": 1,
+            # A new Hyprland session starts on the default theme, so a relogin
+            # must apply again even when nothing else changed.
+            "instance": os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"),
             "baselineTheme": baseline_theme,
             "baselineSize": baseline_size,
             "sourceTheme": str(existing.get("sourceTheme") or source_name),
@@ -444,6 +448,9 @@ def apply_theme(fill: str, outline: str, baseline_theme: str, baseline_size: int
         os.replace(temporary_link, target)
         state = {
             "version": 1,
+            # A new Hyprland session starts on the default theme, so a relogin
+            # must apply again even when nothing else changed.
+            "instance": os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"),
             "baselineTheme": baseline_theme,
             "baselineSize": baseline_size,
             "sourceTheme": resolved_source_out,
