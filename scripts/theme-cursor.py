@@ -225,8 +225,9 @@ def build_theme(source: Path, destination: Path, fill_hex: str, outline_hex: str
     (destination / "index.theme").write_text(
         "[Icon Theme]\n"
         "Name=Big Cheese Runtime\n"
-        "Comment=Temporary Omarchy-colored cursor theme\n"
-        f"Inherits={source.name}\n",
+        "Comment=Temporary Omarchy-colored cursor theme\n",
+        # No Inherits: every cursor is copied above, and Hyprland 0.56 lets an
+        # inherited theme override the recolored shapes.
         encoding="utf-8",
     )
     return {"files": files, "pixels": pixels}
