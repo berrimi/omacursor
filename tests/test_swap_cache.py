@@ -87,3 +87,12 @@ def test_repeat_apply_skips_hyprctl(tmp_path):
     second = run(env, "apply", "#78824b", "#222222", "default", "24")
     assert second["cached"] is True
     assert sum(1 for c in log.read_text().splitlines() if c.startswith("setcursor")) == 1
+
+
+def test_runtime_theme_does_not_inherit_the_source(tmp_path):
+    # Hyprland 0.56 lets an inherited theme override the recolored shapes,
+    # so the runtime theme must stand alone (every cursor is copied anyway).
+    env, _, _ = make_env(tmp_path)
+    applied = run(env, "apply", "#78824b", "#222222", "default", "24")
+    index = (Path(applied["themePath"]) / "index.theme").read_text()
+    assert "Inherits" not in index
