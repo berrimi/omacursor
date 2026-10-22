@@ -10,7 +10,7 @@ SCRIPT = ROOT / "scripts" / "cleanup-on-disable.sh"
 PLUGIN_ID = "io.github.berrimi.omacursor"
 
 
-def setup_env(tmp_path, *, plugin_dir=True, layout_ids=None, plugins_ids=None):
+def setup_env(tmp_path, *, plugin_dir=True, layout_ids=None, plugins_ids=None, invisible=False):
     home = tmp_path / "home"
     plugindir = home / ".config" / "omarchy" / "plugins" / PLUGIN_ID
     if plugin_dir:
@@ -31,10 +31,11 @@ def setup_env(tmp_path, *, plugin_dir=True, layout_ids=None, plugins_ids=None):
     fakebin = tmp_path / "bin"
     fakebin.mkdir()
     log = tmp_path / "hyprctl.log"
+    hidden = "true" if invisible else "false"
     (fakebin / "hyprctl").write_text(
         f'#!/bin/sh\necho "$@" >> "{log}"\n'
         'if [ "$1" = -j ] && [ "$2" = cursorpos ]; then echo \'{"x":100,"y":50}\'; fi\n'
-        'if [ "$1" = -j ] && [ "$2" = getoption ]; then echo \'{"option":"cursor:invisible","bool":false}\'; fi\n'
+        f'if [ "$1" = -j ] && [ "$2" = getoption ]; then echo \'{{"option":"cursor:invisible","bool":{hidden}}}\'; fi\n'
     )
     (fakebin / "hyprctl").chmod(0o755)
     env = dict(os.environ, HOME=str(home), XDG_RUNTIME_DIR=str(run),
@@ -79,6 +80,15 @@ def test_removed_plugin_restores_baseline(tmp_path):
     assert "eval hl.config { cursor = { invisible = true } }" in calls
     assert not icons.exists()
     assert not (run / "omacursor").exists()
+
+
+def test_restore_leaves_hidden_cursor_alone(tmp_path):
+    env, log, run, icons = setup_env(tmp_path, layout_ids=[], invisible=True)
+    run_script(env)
+    calls = log.read_text().splitlines()
+    assert "setcursor quux 48" in calls
+    assert [c for c in calls if c.startswith("eval")] == []
+    assert not icons.exists()
 
 
 def check(env):

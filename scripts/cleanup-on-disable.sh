@@ -38,7 +38,9 @@ if command -v hyprctl >/dev/null 2>&1; then
   # restore the baseline, then a same-spot move re-arms the surface.
   if command -v jq >/dev/null 2>&1; then
     VIS="$(hyprctl -j getoption cursor:invisible 2>/dev/null | jq -r '.bool' 2>/dev/null)"
-    if [ "$VIS" = true ] || [ "$VIS" = false ]; then
+    # Skip the wake when the cursor is already hidden: nothing to refresh,
+    # and restoring a hidden state could undo Omarchy's own reveal.
+    if [ "$VIS" = false ]; then
       # Never leave the pointer hidden, even if killed mid-hold.
       # shellcheck disable=SC2064
       trap "hyprctl eval 'hl.config { cursor = { invisible = $VIS } }' >/dev/null 2>&1" EXIT INT TERM

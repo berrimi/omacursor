@@ -20,18 +20,19 @@ def run(env, *args):
     return json.loads(completed.stdout)
 
 
-def make_env(tmp_path):
+def make_env(tmp_path, invisible=False):
     icons = tmp_path / "icons" / "Adwaita" / "cursors"
     icons.mkdir(parents=True)
     shutil.copy2(REAL_CURSOR, icons / "left_ptr")
     fakebin = tmp_path / "bin"
     fakebin.mkdir()
     log = tmp_path / "hyprctl.log"
+    hidden = "true" if invisible else "false"
     (fakebin / "hyprctl").write_text(
         "#!/bin/sh\n"
         f'echo "$@" >> "{log}"\n'
         'if [ "$1" = "-j" ] && [ "$2" = "cursorpos" ]; then echo \'{"x":1,"y":2}\'; fi\n'
-        'if [ "$1" = "-j" ] && [ "$2" = "getoption" ]; then echo \'{"option":"cursor:invisible","bool":false}\'; fi\n'
+        f'if [ "$1" = "-j" ] && [ "$2" = "getoption" ]; then echo \'{{"option":"cursor:invisible","bool":{hidden}}}\'; fi\n'
     )
     (fakebin / "hyprctl").chmod(0o755)
     state = tmp_path / "state.json"
@@ -78,6 +79,16 @@ def test_refresh_toggles_invisible(tmp_path):
     assert move in calls
     assert calls.index(hide) < calls.index(show) < calls.index(move)
     assert [c for c in calls if c.startswith("dispatch movecursor")] == []
+
+
+def test_refresh_leaves_hidden_cursor_alone(tmp_path):
+    # Omarchy hides the cursor for the first seconds after login. Writing
+    # that state back after its own restore left the pointer invisible.
+    env, log, _ = make_env(tmp_path, invisible=True)
+    run(env, "apply", "#78824b", "#222222", "default", "24")
+    calls = log.read_text().splitlines()
+    assert [c for c in calls if c.startswith("eval")] == []
+    assert [c for c in calls if c.startswith("dispatch")] == []
 
 
 def test_repeat_apply_skips_hyprctl(tmp_path):
