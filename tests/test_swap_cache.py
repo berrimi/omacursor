@@ -96,3 +96,12 @@ def test_runtime_theme_does_not_inherit_the_source(tmp_path):
     applied = run(env, "apply", "#78824b", "#222222", "default", "24")
     index = (Path(applied["themePath"]) / "index.theme").read_text()
     assert "Inherits" not in index
+
+
+def test_new_hyprland_session_applies_again(tmp_path):
+    # A relogin starts Hyprland on the default theme, so an unchanged state
+    # from the previous session must not skip setcursor.
+    env, log, _ = make_env(tmp_path)
+    run(dict(env, HYPRLAND_INSTANCE_SIGNATURE="session-a"), "apply", "#78824b", "#222222", "default", "24")
+    run(dict(env, HYPRLAND_INSTANCE_SIGNATURE="session-b"), "apply", "#78824b", "#222222", "default", "24")
+    assert sum(1 for c in log.read_text().splitlines() if c.startswith("setcursor omacursor-runtime")) == 2
