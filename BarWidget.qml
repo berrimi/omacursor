@@ -50,8 +50,6 @@ BarWidget {
     id: cursorIcon
 
     Item {
-      anchors.fill: parent
-
       Image {
         id: glyph
         anchors.fill: parent
