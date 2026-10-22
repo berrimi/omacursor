@@ -285,8 +285,11 @@ def refresh_cursor_image(executable: str) -> None:
     # Mirror big-cheese's wake sequence: re-showing the cursor re-resolves
     # its image from the current theme, and the same-spot move re-arms the
     # surface underneath. No visible motion either way.
+    # A hidden cursor has nothing to wake. Omarchy also hides it for the
+    # first seconds after login, and writing that state back after its own
+    # restore would leave the pointer invisible.
     baseline = read_cursor_invisible(executable)
-    if baseline is None:
+    if baseline is not False:
         return
     set_cursor_invisible(executable, True)
     try:
