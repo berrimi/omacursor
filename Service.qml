@@ -47,7 +47,8 @@ Item {
   }
 
   function doApply() {
-    apply.command = [helper, "apply", fill, outline, "default", "24"]
+    // Follow the session cursor size (Hyprland env) instead of a fixed 24.
+    apply.command = [helper, "apply", fill, outline, "default", Quickshell.env("XCURSOR_SIZE") || "24"]
     apply.running = true
   }
 
@@ -81,7 +82,7 @@ Item {
     }
   }
 
-  // ponytail: baseline defaults to default/24 inside theme-cursor.py, no per-theme size tracking; add when non-default cursor sizes matter.
+  // ponytail: the size follows XCURSOR_SIZE at apply time; no per-theme size tracking.
   Timer {
     id: debounce
     interval: 500
