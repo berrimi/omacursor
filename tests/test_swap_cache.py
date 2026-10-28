@@ -67,6 +67,20 @@ def test_toggle_uses_cached_variants(tmp_path):
     assert not state.exists()
 
 
+def test_source_change_rebuilds_cached_variant(tmp_path):
+    # Glyphs come from the source theme, so a cached variant built from another
+    # source must not be reused for the same colour pair.
+    env, _, state = make_env(tmp_path)
+    first = run(env, "apply", "#78824b", "#222222", "default", "24")
+    assert first["cached"] is False
+    payload = json.loads(state.read_text())
+    payload["builds"]["#78824b|#222222"]["source"] = "Other"
+    state.write_text(json.dumps(payload))
+    rebuilt = run(env, "apply", "#78824b", "#222222", "default", "24")
+    assert rebuilt["cached"] is False
+    assert rebuilt["files"] > 0
+
+
 def test_refresh_toggles_invisible(tmp_path):
     env, log, _ = make_env(tmp_path)
     run(env, "apply", "#78824b", "#222222", "default", "24")

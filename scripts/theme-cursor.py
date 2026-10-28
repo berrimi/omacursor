@@ -19,10 +19,12 @@ from typing import Any
 IMAGE_TYPE = 0xFFFD0002
 RUNTIME_THEME = "omacursor-runtime"
 CURSOR_NAMES = ("default", "left_ptr", "arrow")
-# Hide hold after a theme switch: must span a full ~500 ms cursor.invisible
-# poll or the re-show lands before the compositor re-resolves the image.
-# 0.6 is the minimum Omarchy itself uses; do not go lower without re-testing.
-HIDE_HOLD_SECONDS = 0.6
+# Hyprland applies cursor.invisible within a few milliseconds, so the hide is
+# polled until it took effect instead of being held for a guessed duration.
+# The extra frame is the redraw that re-resolves the image from the new theme,
+# and the timeout only matters if the request never lands.
+APPLY_TIMEOUT_SECONDS = 0.3
+FRAME_SECONDS = 1 / 60
 
 
 def icon_roots() -> list[Path]:
@@ -282,6 +284,15 @@ def set_cursor_invisible(executable: str, value: bool) -> None:
         pass
 
 
+def wait_cursor_invisible(executable: str, value: bool) -> bool:
+    deadline = time.monotonic() + APPLY_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        if read_cursor_invisible(executable) is value:
+            return True
+        time.sleep(0.004)
+    return False
+
+
 def refresh_cursor_image(executable: str) -> None:
     # Mirror big-cheese's wake sequence: re-showing the cursor re-resolves
     # its image from the current theme, and the same-spot move re-arms the
@@ -294,9 +305,11 @@ def refresh_cursor_image(executable: str) -> None:
         return
     set_cursor_invisible(executable, True)
     try:
-        # Hyprland polls cursor.invisible roughly every 500 ms; the hold must
-        # span a full poll or the show lands before anything re-resolves.
-        time.sleep(HIDE_HOLD_SECONDS)
+        # getoption reports the config value, so this only proves Hyprland took
+        # the request. The frame that follows is the one that redraws the
+        # cursor: without it the show can land before the new theme is used.
+        wait_cursor_invisible(executable, True)
+        time.sleep(FRAME_SECONDS)
     finally:
         set_cursor_invisible(executable, baseline)
     try:
@@ -371,6 +384,7 @@ def apply_theme(fill: str, outline: str, baseline_theme: str, baseline_size: int
     store_parent = runtime_theme_path().parent
     store_parent.mkdir(parents=True, exist_ok=True)
     builds = cached_builds(existing)
+    source, resolved_source = resolve_theme(source_name)
     # Adopt a pre-cache build (or the legacy single dir) instead of rebuilding.
     legacy_path = Path(str((existing or {}).get("themePath") or runtime_theme_path()))
     if (
@@ -380,11 +394,15 @@ def apply_theme(fill: str, outline: str, baseline_theme: str, baseline_size: int
         and legacy_path.is_dir()
         and all(str(v.get("path")) != str(legacy_path) for v in builds.values())
     ):
-        builds[f"{fill}|{outline}"] = {"fill": fill, "outline": outline, "path": str(legacy_path)}
+        builds[f"{fill}|{outline}"] = {"fill": fill, "outline": outline,
+                                      "path": str(legacy_path), "source": resolved_source}
     key = f"{fill}|{outline}"
     entry = builds.get(key)
     variant = Path(str(entry.get("path"))) if isinstance(entry, dict) and entry.get("path") else variant_dir(fill, outline)
-    hit = variant.is_dir()
+    # Recolored glyphs depend on the theme they were built from, so a cached
+    # variant is only valid for the source it was built from. Keying on the
+    # colour pair alone reused the old shapes after a source theme change.
+    hit = variant.is_dir() and str(entry.get("source") or "") == resolved_source
     if (
         hit
         and existing
@@ -422,7 +440,6 @@ def apply_theme(fill: str, outline: str, baseline_theme: str, baseline_size: int
         stats: dict[str, Any] = {"files": 0, "pixels": 0, "cached": True}
         resolved_source_out = str((existing or {}).get("sourceTheme") or source_name)
     else:
-        source, resolved_source = resolve_theme(source_name)
         staging = store_parent / f".cursor-theme.{os.getpid()}.tmp"
         try:
             built = build_theme(source, staging, fill, outline)
@@ -431,7 +448,8 @@ def apply_theme(fill: str, outline: str, baseline_theme: str, baseline_size: int
             stats = {"files": built["files"], "pixels": built["pixels"], "cached": False}
         finally:
             remove_path(staging)
-        builds[key] = {"fill": fill, "outline": outline, "path": str(variant)}
+        builds[key] = {"fill": fill, "outline": outline, "path": str(variant),
+                       "source": resolved_source}
         while len(builds) > 2:
             oldest, victim = next(iter(builds.items()))
             if oldest == key:
