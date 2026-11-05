@@ -31,8 +31,7 @@ omarchy plugin remove io.github.berrimi.omacursor
 ## Files
 
 - `Service.qml` — watches the Omarchy palette and reapplies the cursor theme.
-- `BarWidget.qml` — the bar icon and click-to-swap toggle.
-- `assets/cursor.svg` — the bar icon (white silhouette; the bar tints it).
+- `BarWidget.qml` — the bar icon (inline vector paths) and click-to-swap toggle.
 - `scripts/theme-cursor.py` — builds and applies a temporary recolored
   Xcursor theme. `apply-omarchy` reads the current Omarchy colors,
   `restore` returns to the previous cursor theme and size. Both toggle
