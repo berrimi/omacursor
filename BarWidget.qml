@@ -50,6 +50,10 @@ BarWidget {
     id: cursorIcon
 
     Item {
+      // The bar's official visual target; the icon is drawn at this size.
+      width: Style.bar.iconSize
+      height: Style.bar.iconSize
+
       Image {
         id: glyph
         anchors.fill: parent
